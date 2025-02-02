@@ -1,3 +1,5 @@
+'use-client'
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -6,7 +8,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,7 +15,9 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from '@/components/ui/input-otp';
+import { sendEmailOTP, verifySecret } from '@/lib/actions/user.actions';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 
 const OTPModal = ({
@@ -24,6 +27,7 @@ const OTPModal = ({
   email: string;
   accountId: string;
 }) => {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(true);
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -33,6 +37,10 @@ const OTPModal = ({
     setIsLoading(true);
 
     try {
+      console.log(accountId, password, 'password');
+      const sessionId = await verifySecret({accountId, password});
+
+      if(sessionId) router.push('/');
     } catch (error) {
       console.log('Failed to verify the OTP', error);
     } finally {
@@ -40,12 +48,13 @@ const OTPModal = ({
     }
   };
 
-  const handleResendOTP = async () => {};
+  const handleResendOTP = async () => {
+    await sendEmailOTP({email});
+  };
 
   return (
     <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
       {/* not reuired, handled throughcode */}
-      <AlertDialogTrigger>Open</AlertDialogTrigger>
       <AlertDialogContent className="shad-alert-dialog">
         <AlertDialogHeader className="relative flex justify-center">
           <AlertDialogTitle className="h2-text-center">
@@ -101,8 +110,9 @@ const OTPModal = ({
                 variant="link"
                 className="pl-1 text-brand"
                 onClick={handleResendOTP}
-              />
-              Click to resend
+              >
+                Click to resend
+              </Button>
             </div>
           </div>
         </AlertDialogFooter>
