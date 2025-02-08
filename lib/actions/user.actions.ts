@@ -1,12 +1,12 @@
 'use server';
 
-// import { avatarPlaceholderUrl } from '@/constants';
-import { createAdminClient } from '@/lib/appwrite';
+import { createAdminClient, createSessionClient } from '@/lib/appwrite';
 import { appwriteConfig } from '@/lib/appwrite/config';
-// import { parseStringify } from '@/lib/utils';
 import { ID, Query } from 'node-appwrite';
 import { parseStringify } from '../utils';
 import { cookies } from 'next/headers';
+import { avatarPlaceholderUrl } from '@/constants';
+import { redirect } from 'next/navigation';
 
 const getUserByEmail = async (email: string) => {
   const { databases } = await createAdminClient();
@@ -59,8 +59,7 @@ export const createAccount = async ({
       {
         fullName,
         email,
-        avatar:
-          'https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.vexels.com%2Fmerch%2Fpng%2Favatar%2F&psig=AOvVaw3ar_4C9G2zE0qSzZ1GKLjy&ust=1738184386431000&source=images&cd=vfe&opi=89978449&ved=0CBEQjRxqFwoTCJjvgM2nmYsDFQAAAAAdAAAAABAE',
+        avatar: avatarPlaceholderUrl,
         accountId,
       },
     );
@@ -81,15 +80,63 @@ export const verifySecret = async ({
 
     const session = await account.createSession(accountId, password);
 
-    (await cookies()).set("appwrite-session", session.secret, {
-      path: "/",
+    (await cookies()).set('appwrite-session', session.secret, {
+      path: '/',
       httpOnly: true,
-      sameSite: "strict",
+      sameSite: 'strict',
       secure: true,
     });
 
     return parseStringify({ sessionId: session.$id });
   } catch (error) {
-    handleError(error, "Failed to verify OTP");
+    handleError(error, 'Failed to verify OTP');
+  }
+};
+
+export const getCurrentUser = async () => {
+  try {
+    const { databases, account } = await createSessionClient();
+
+    const result = await account.get();
+
+    const user = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      appwriteConfig.usersCollectionId,
+      [Query.equal('accountId', result.$id)],
+    );
+
+    if (user.total <= 0) return null;
+
+    return parseStringify(user.documents[0]);
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+export const signOutUser = async () => {
+  const { account } = await createSessionClient();
+
+  try {
+    await account.deleteSession('current');
+    (await cookies()).delete('appwrite-session');
+  } catch (error) {
+    handleError(error, 'Failed to sign out user');
+  } finally {
+    redirect('/sign-in');
+  }
+};
+
+export const signInUser = async ({ email }: { email: string }) => {
+  try {
+    const existingUser = await getUserByEmail(email);
+
+    if (existingUser) {
+      await sendEmailOTP({ email });
+      return parseStringify({ accountId: existingUser.accountId });
+    }
+
+    return parseStringify({ accountId: null, error: 'User not found' });
+  } catch (error) {
+    handleError(error, 'Failed to sign in user');
   }
 };
