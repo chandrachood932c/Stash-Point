@@ -8,8 +8,8 @@ const poppins = Poppins({
   variable: '--font-poppins',
 });
 export const metadata: Metadata = {
-  title: 'StoreIt',
-  description: 'StoreIt - A file storage service.',
+  title: 'Stash Point',
+  description: 'Stash Point - A file storage service.',
 };
 
 export default function RootLayout({
